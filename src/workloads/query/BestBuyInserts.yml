@@ -1,0 +1,183 @@
+SchemaVersion: 2018-07-01
+Owner: "@mongodb/query-execution"
+Description: |
+  This workload measures bulk insert performance with the BestBuy dataset used in some other
+  workloads. It's main purpose is to compare the insert performance with columnar indexes to inserts
+  without them. To get a better illustration, it measures insert performance in three scenarios:
+   - No indexes present
+   - "Default" indexes present - a set of indexes that are typically present on the Best Buy
+     dataset, those that would be useful for the typical query workloads.
+   - Only a column store index. A column store index isn't expected to realistically replace all of
+     those indexes in production, but it could replace some and knowing it's relative performance
+     cost could help make that decision.
+
+  In order to run this workload, the bestbuy dataset must be present already in the database under
+  test. This is designed to test insert performance in more of a steady-state and hopefully I/O
+  bound mongod.
+
+  The workload consists of the following phases and actors:
+   - Bulk inserting with the default indexes. (SamplingLoader used to generate artificial inserts)
+   - Drop all non-_id indexes (RunCommand Actor)
+   - Measure bulk inserting again (SamplingLoader)
+   - Build the column store index (RunCommand Actor)
+   - Measure bulk inserting again (SamplingLoader)
+
+Keywords:
+- columnstore
+- analytics
+- scale
+- insert
+
+Clients:
+  Default:
+    QueryOptions:
+      # Allow for longer duration since index builds may take a while.
+      socketTimeoutMS: 3_600_000  # = 1 hour
+      connectTimeoutMS: 3_600_000
+
+GlobalDefaults:
+  # Defines the database name.
+  Database: &db bestbuy-small
+
+  # Defines the collection name.
+  Collection: &Collection products
+
+  ColumnStoreIndexSpec: &ColumnStoreIndexSpec
+    key: {$**: "columnstore"}
+    # columnstoreProjection: 
+    #   longDescription: 0
+    #   longDescriptionHtml: 0
+    #   plot: 0
+    #   plotHtml: 0
+    #   shortDescription: 0
+    #   shortDescriptionHtml: 0
+    #   description: 0
+    #   url: 0
+    #   addToCartUrl: 0
+    #   mobileUrl: 0
+    name: "columnstore"
+
+  WildcardIndexSpec: &WildcardIndexSpec
+    key: {$**: 1}
+    name: "wildcard"
+
+  LoadThreads: &LoadThreads 1
+  MaxPhases: &MaxPhases 7
+
+  SamplingLoaderPhaseConfig: &SamplingLoaderPhaseConfig
+    Repeat: 1
+    InsertBatchSize: 1000
+    Batches: 50 # Per Thread
+
+Actors:
+- Name: Quiesce
+  Type: QuiesceActor
+  Threads: 1
+  Database: *db
+  Phases:
+    OnlyActiveInPhases:
+      Active: [0, 3, 6]
+      NopInPhasesUpTo: *MaxPhases
+      PhaseConfig:
+        Repeat: 1
+        Database: *db
+
+- Name: Default
+  Type: SamplingLoader
+  Threads: *LoadThreads
+  SampleSize: 1000
+  Pipeline: [{$set: {genny_added: true}}]
+  Collection: *Collection
+  Database: *db
+  Phases:
+    OnlyActiveInPhases:
+      Active: [1]
+      NopInPhasesUpTo: *MaxPhases
+      PhaseConfig: *SamplingLoaderPhaseConfig
+
+- Name: SwitchToCSI
+  Type: RunCommand
+  Threads: 1
+  Phases:
+    OnlyActiveInPhases:
+      Active: [2]
+      NopInPhasesUpTo: *MaxPhases
+      PhaseConfig:
+        Repeat: 1
+        Database: *db
+        Operations:
+        - OperationName: RunCommand
+          OperationCommand:
+            dropIndexes: *Collection
+            # This will drop all non-essential indexes (_id and any shard key index remain)
+            index: '*'
+        - OperationName: RunCommand
+          OperationCommand:
+            createIndexes: *Collection
+            indexes:
+            - *ColumnStoreIndexSpec
+
+- Name: CSI
+  Type: SamplingLoader
+  Threads: *LoadThreads
+  SampleSize: 1000
+  Pipeline: [{$set: {genny_added: true}}]
+  Collection: *Collection
+  Database: *db
+  Phases:
+    OnlyActiveInPhases:
+      Active: [4]
+      NopInPhasesUpTo: *MaxPhases
+      PhaseConfig: *SamplingLoaderPhaseConfig
+
+# - Name: SwitchToWildcard
+#   Type: RunCommand
+#   Threads: 1
+#   Phases:
+#     OnlyActiveInPhases:
+#       Active: [5]
+#       NopInPhasesUpTo: *MaxPhases
+#       PhaseConfig:
+#         Repeat: 1
+#         Database: *db
+#         Operations:
+#         - OperationName: RunCommand
+#           OperationCommand:
+#             dropIndexes: *Collection
+#             # This will drop all non-essential indexes (_id and any shard key index remain)
+#             index: '*'
+#         - OperationName: RunCommand
+#           OperationCommand:
+#             createIndexes: *Collection
+#             indexes:
+#             - *WildcardIndexSpec
+
+# - Name: Wildcard
+#   Type: SamplingLoader
+#   Threads: *LoadThreads
+#   SampleSize: 1000
+#   Pipeline: [{$set: {genny_added: true}}]
+#   Collection: *Collection
+#   Database: *db
+#   Phases:
+#     OnlyActiveInPhases:
+#       Active: [7]
+#       NopInPhasesUpTo: *MaxPhases
+#       PhaseConfig: *SamplingLoaderPhaseConfig
+
+# TODO PERF-3094: Revive 'AutoRun' configuration when the project is near to a closure.
+# AutoRun:
+# - When:
+#     mongodb_setup:
+#       $eq:
+#       - standalone-all-feature-flags
+#     branch_name:
+#       $neq:
+#       - v4.0
+#       - v4.2
+#       - v4.4
+#       - v5.0
+#       - v5.3
+#       - v6.0
+#     ThenRun:
+#     - test_control: bestbuy_inserts
