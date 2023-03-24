@@ -1,0 +1,89 @@
+SchemaVersion: 2018-07-01
+Owner: "@mongodb/query-execution"
+Description: |
+
+Keywords:
+- group
+- percentile
+
+AutoRun:
+- When:
+    mongodb_setup:
+      $eq:
+      - standalone-all-feature-flags
+    branch_name:
+      $neq:
+      - v4.0
+      - v4.2
+      - v4.4
+      - v5.0
+      - v6.0
+
+GlobalDefaults:
+  MaxPhases: &maxPhases 5
+  Database: &db percentiles
+
+  # The Loader actor creates collections named "Collection<N>" where N corresponds to the thread's
+  # number. We'll use a single collection, created by a single thread, so it becomes 'Collection0'.
+  Collection: &coll Collection0
+
+  DocumentCount: &docCount 1e6
+
+  # Document: &document
+  #   # fields for testing the accumulator (use 'k*' fields to vary group cardinality):
+  #   _id: {^Inc: {start: 0}}
+  #   k10: {^RandomInt: {min: 0, max: 10}}
+  #   k100: {^RandomInt: {min: 0, max: 100}}
+  #   k1000: {^RandomInt: {min: 0, max: 1000}}
+  #   uniform: {^RandomDouble: {distribution: uniform, min: 0.0, max: 100.0}}
+  #   exp: {^RandomDouble: {distribution: exponential, lambda: 1.0}}
+  #   extreme: {^RandomDouble: {distribution: extreme_value, a: 20.0, b: 2.0}}
+  #   normal: {^RandomDouble: {distribution: normal, mean: 50.0, sigma: 10.0}}
+  #   dupes: {^Choose: {
+  #               from: [
+  #                 {^RandomInt: {distribution: uniform, min: 0, max: 10000}},
+  #                 {^RandomDouble: {distribution: normal, mean: 50.0, sigma: 10.0}},
+  #                 {^RandomDouble: {distribution: exponential, lambda: 1.0}},
+  #                 {^RandomDouble: {distribution: uniform, min: 0.0, max: 100.0}},
+  #               ]
+  #             }}
+  #   # fields for testing expressions:
+  #   # single value
+  #   # arrays of various sizes, data distribution of this data probably doesn't matter
+
+  Document: &document_accuracy_test
+    _id: {^Inc: {start: 0}}
+    normal: {^RandomDouble: {distribution: normal, mean: 0.0, sigma: 0.5}}
+
+Actors:
+- Name: Loader
+  Type: Loader
+  Threads: 1
+  Phases:
+    OnlyActiveInPhases:
+      Active: [0]
+      NopInPhasesUpTo: *maxPhases
+      PhaseConfig:
+        # Cannot have more threads than the actor itself.
+        Threads: 1
+        Repeat: 1
+        Database: *db
+        CollectionCount: 1
+        DocumentCount: *docCount
+        BatchSize: 1000
+        Document: *document_accuracy_test
+
+- Name: Quiese
+  Type: QuiesceActor
+  Threads: 1
+  Database: *db
+  Phases:
+    OnlyActiveInPhases:
+      Active: [1]
+      NopInPhasesUpTo: *maxPhases
+      PhaseConfig:
+        Repeat: 1
+
+
+
+
