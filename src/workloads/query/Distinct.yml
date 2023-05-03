@@ -12,8 +12,7 @@ AutoRun:
       $eq:
       - standalone
     branch_name:
-      $gte:
-      - v5.0
+      $gte: v5.0
 
 GlobalDefaults:
   MaxPhases: &maxPhases 39
