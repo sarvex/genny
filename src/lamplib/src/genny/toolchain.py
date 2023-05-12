@@ -22,7 +22,6 @@ def _create_compile_environment(
 ) -> dict:
     system_env = system_env if system_env else os.environ.copy()
 
-    out = dict()
     paths = [system_env["PATH"]]
 
     # For mongodbtoolchain compiler (if there).
@@ -52,13 +51,11 @@ def _create_compile_environment(
 
         # For ninja
         ninja_bin_dir = os.path.join(
-            toolchain_dir, "downloads/tools/ninja/1.10.2-{}:".format(triplet_os)
+            toolchain_dir, f"downloads/tools/ninja/1.10.2-{triplet_os}:"
         )
         paths.insert(0, ninja_bin_dir)
 
-    out["PATH"] = ":".join(paths)
-    out["NINJA_STATUS"] = "[%f/%t (%p) %es] "  # make the ninja output even nicer
-    return out
+    return {"PATH": ":".join(paths), "NINJA_STATUS": "[%f/%t (%p) %es] "}
 
 
 class ToolchainInfo(NamedTuple):
@@ -138,7 +135,7 @@ def toolchain_info(
     ignore_toolchain_version: Optional[bool] = None,
 ) -> ToolchainInfo:
     passed_args = [os_family, linux_distro, ignore_toolchain_version]
-    passed_any = any(x for x in passed_args)
+    passed_any = any(passed_args)
 
     save_path = os.path.join(genny_repo_root, "build", "ToolchainInfo.json")
     has_save = os.path.exists(save_path)
@@ -157,7 +154,7 @@ def toolchain_info(
             f"No toolchain info saved at {save_path}."
         )
         raise Exception(msg)
-    if passed_any or not has_save:
+    if passed_any:
         SLOG.debug(
             "Passed build args or no saved toolchain info",
             passed_any=passed_any,
@@ -233,18 +230,10 @@ class ToolchainDownloader(Downloader):
     def _get_url(self):
         # TODO: Need to update prefixes for waterfall
         if self._os_family == "Darwin":
-            if self.triplet_arch == "arm64":
-                prefix = "macos_1100_arm64"
-            else:
-                prefix = "macos_1100"
+            prefix = "macos_1100_arm64" if self.triplet_arch == "arm64" else "macos_1100"
         else:
             prefix = self._linux_distro
-        return (
-            "https://s3.amazonaws.com/mciuploads/genny-toolchain/"
-            "genny_toolchain_{}_{}/gennytoolchain.tgz".format(
-                prefix, ToolchainDownloader.TOOLCHAIN_BUILD_ID
-            )
-        )
+        return f"https://s3.amazonaws.com/mciuploads/genny-toolchain/genny_toolchain_{prefix}_{ToolchainDownloader.TOOLCHAIN_BUILD_ID}/gennytoolchain.tgz"
 
     def _can_ignore(self):
         # If the toolchain dir is outdated, or we ignore the toolchain version.

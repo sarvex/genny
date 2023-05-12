@@ -78,7 +78,7 @@ def _traverse_yamls(roots):
                 has_error = check_filename(filename)
                 if filename.endswith(".yml"):
                     yaml_files.append(path.join(dirpath, filename))
-    if len(yaml_files) == 0:
+    if not yaml_files:
         SLOG.error("Did not find any YAML files to lint", in_dirs=directories)
         raise Exception("No yamls found")
     return yaml_files, has_error
@@ -86,5 +86,4 @@ def _traverse_yamls(roots):
 
 def _load_yaml(yaml_path):
     with open(yaml_path) as file:
-        workload = yaml.safe_load(file)
-        return workload
+        return yaml.safe_load(file)

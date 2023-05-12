@@ -49,7 +49,7 @@ class BuilderSettings(object):
     def reference(self):
         """ Read project version from branch create Conan reference
         """
-        return os.getenv("CONAN_REFERENCE", "Catch2/{}".format(self._version))
+        return os.getenv("CONAN_REFERENCE", f"Catch2/{self._version}")
 
     @property
     def channel(self):
@@ -65,9 +65,8 @@ class BuilderSettings(object):
         version = "latest"
         with open("CMakeLists.txt") as file:
             for line in file:
-                result = pattern.search(line)
-                if result:
-                    version = result.group(1)
+                if result := pattern.search(line):
+                    version = result[1]
         return version
 
     @property

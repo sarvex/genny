@@ -40,13 +40,11 @@ class TestPreprocess(unittest.TestCase):
     def test_scoped_contest(self):
         context = preprocess._Context()
         with context.enter():
-            outer = {}
-            outer["outerKey"] = "outerVal"
+            outer = {"outerKey": "outerVal"}
             context.insert("outerName", outer, preprocess._ContextType.Parameter)
 
             with context.enter():
-                inner = {}
-                inner["innerKey1"] = "innerVal1"
+                inner = {"innerKey1": "innerVal1"}
                 context.insert("innerName1", inner, preprocess._ContextType.Parameter)
 
                 retrievedOuter = context.get("outerName", preprocess._ContextType.Parameter)
@@ -56,8 +54,7 @@ class TestPreprocess(unittest.TestCase):
                 self.assertEqual(retrievedInner, inner)
 
             with context.enter():
-                inner = {}
-                inner["innerKey2"] = "innerVal2"
+                inner = {"innerKey2": "innerVal2"}
                 context.insert("innerName2", inner, preprocess._ContextType.Parameter)
 
                 retrievedOuter = context.get("outerName", preprocess._ContextType.Parameter)

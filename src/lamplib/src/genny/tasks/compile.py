@@ -26,7 +26,7 @@ def _sanitizer_flags(sanitizer: str, genny_repo_root: str):
         return ["-DCMAKE_CXX_FLAGS=-pthread -fsanitize=undefined -g -O1"]
 
     # arg parser should prevent us from getting here
-    raise ValueError("Unknown sanitizer {}".format(sanitizer))
+    raise ValueError(f"Unknown sanitizer {sanitizer}")
 
 
 def cmake(
@@ -68,10 +68,9 @@ def cmake(
     )
 
     cmake_cmd += [
-        "-DGENNY_WORKSPACE_ROOT={}".format(workspace_root),
-        # "-DGENNY_REPO_ROOT={}".format(genny_repo_root),  # Not needed (yet).
-        "-DCMAKE_PREFIX_PATH={}".format(";".join(cmake_prefix_paths)),
-        "-DCMAKE_TOOLCHAIN_FILE={}".format(cmake_toolchain_file),
+        f"-DGENNY_WORKSPACE_ROOT={workspace_root}",
+        f'-DCMAKE_PREFIX_PATH={";".join(cmake_prefix_paths)}',
+        f"-DCMAKE_TOOLCHAIN_FILE={cmake_toolchain_file}",
         "-DCMAKE_EXPORT_COMPILE_COMMANDS=1",
         f"-DVCPKG_TARGET_TRIPLET={toolchain_info.triplet_arch}-{toolchain_info.triplet_os}",
     ]

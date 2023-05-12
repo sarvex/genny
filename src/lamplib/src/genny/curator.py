@@ -23,10 +23,7 @@ def _find_curator(workspace_root: str, genny_repo_root: str) -> Optional[str]:
         return in_bin
 
     in_build = os.path.join(genny_repo_root, "build", "curator", "curator")
-    if os.path.exists(in_build):
-        return in_build
-
-    return None
+    return in_build if os.path.exists(in_build) else None
 
 
 def _get_poplar_args(genny_repo_root: str, workspace_root: str):
@@ -147,7 +144,7 @@ def poplar_grpc(cleanup_metrics: bool, workspace_root: str, genny_repo_root: str
         try:
             os.chdir(prior_cwd)
             connected = False
-            for i in range(10):
+            for _ in range(10):
                 time.sleep(0.2)  # sleep to let curator get started. This is a heuristic.
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 try:
@@ -163,7 +160,7 @@ def poplar_grpc(cleanup_metrics: bool, workspace_root: str, genny_repo_root: str
                 finally:
                     sock.close()
             if not connected:
-                raise OSError(f"Poplar not listening on port 2288")
+                raise OSError("Poplar not listening on port 2288")
             yield poplar
         finally:
             try:

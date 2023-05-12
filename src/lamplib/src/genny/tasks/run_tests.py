@@ -183,11 +183,10 @@ def _get_mongo_commit(mongod_path, genny_repo_root):
     )
     commit_regex = r"\"gitVersion\":\s\"([\da-z]+)\""
     commit = None
-    if output.returncode == 0:
-        matches = re.search(commit_regex, str(output.stdout), re.MULTILINE)
-        if matches:
-            commit = matches.group(1)
-    SLOG.info(f"Identified Mongo commit", commit=commit)
+    if matches := re.search(commit_regex, str(output.stdout), re.MULTILINE):
+        if output.returncode == 0:
+            commit = matches[1]
+    SLOG.info("Identified Mongo commit", commit=commit)
     return commit
 
 
@@ -197,11 +196,7 @@ def _setup_resmoke(
     mongo_dir: Optional[str],
     mongodb_archive_url: Optional[str],
 ):
-    # If artifact is not overridden by user then use the default commit
-    expected_commit = None
-    if mongodb_archive_url is None:
-        expected_commit = MONGO_COMMIT
-
+    expected_commit = MONGO_COMMIT if mongodb_archive_url is None else None
     if mongo_dir is not None:
         mongo_repo_path = mongo_dir
     else:
@@ -368,9 +363,7 @@ def resmoke_test(
             cwd=mongo_repo_path,
             env=env,
             capture=False,
-            # If we're create_new_actor_test we don't want
-            # to barf when resmoke fails. We expect it to fail.
-            check=False if is_cnats else True,  # `not is_cnats` was hard to read.
+            check=not is_cnats,
         )
 
     _run_command_with_sentinel_report(

@@ -39,8 +39,7 @@ class MockReader(YamlReader):
         return found is not None
 
     def _find_file(self, path: str):
-        found = [f for f in self.files if f.base_name == path]
-        if found:
+        if found := [f for f in self.files if f.base_name == path]:
             return found[0]
         return None
 
@@ -98,7 +97,7 @@ TIMEOUT_COMMAND = {
 
 def expansions_mock(exp_vars) -> MockFile:
     yaml_conts = {"build_variant": "some-build-variant", "execution": "0"}
-    yaml_conts.update(exp_vars)
+    yaml_conts |= exp_vars
     return MockFile(
         base_name="expansions.yml",
         modified=False,

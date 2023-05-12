@@ -103,7 +103,7 @@ class Downloader:
         return okay
 
     def _fetch_and_install_impl(self) -> None:
-        tarball = os.path.join(self._install_dir, self._name + ".tgz")
+        tarball = os.path.join(self._install_dir, f"{self._name}.tgz")
         # if os.path.isfile(tarball):
         #    SLOG.info("Skipping downloading since already exists", tarball=tarball)
         # else:

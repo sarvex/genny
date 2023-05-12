@@ -75,7 +75,7 @@ you consider more useful.''')
 def replace_suffix(string, suffixTarget, newSuffix):
     assert string.endswith(suffixTarget)
     suffix_start = string.rfind(suffixTarget)
-    return string[0:suffix_start] + newSuffix
+    return string[:suffix_start] + newSuffix
 
 
 def convert_to_csv(args, actor_file):
@@ -117,7 +117,8 @@ def summarize_diffed_data(args, actor_name, metrics_of_interest):
     for (metric_name, diffed_readings) in metrics_of_interest.items():
         if diffed_readings == []:
             print(
-                "No measurements to summarize for %s metric for %s. Skipping" % (metric_name, actor_name))
+                f"No measurements to summarize for {metric_name} metric for {actor_name}. Skipping"
+            )
             continue
 
         sorted_res = sorted(diffed_readings)
@@ -151,28 +152,30 @@ def summarize_readings(args, actor_name, metrics_of_interest, header, last_line)
         print(
             "Finished summarizing diffed data, computing metrics from the the last row...")
 
-    if "throughput" in args.metrics:
-        if "counters.ops" in header and "timers.dur" in header:
-            n_ops = float(last_line[header.index("counters.ops")])
-            elapsed_nanos = float(last_line[header.index("timers.dur")])
-            elapsed_seconds = elapsed_nanos / (1000.0 * 1000.0 * 1000.0)
-            results["throughput"] = {
-                "ops": n_ops,
-                "seconds": elapsed_seconds,
-                "ops per second": round(n_ops / elapsed_seconds, 4),
-            }
-            if args.verbose:
-                print("throughput:")
-                pretty_print_summary(args, results["throughput"], "\t")
+    if (
+        "throughput" in args.metrics
+        and "counters.ops" in header
+        and "timers.dur" in header
+    ):
+        n_ops = float(last_line[header.index("counters.ops")])
+        elapsed_nanos = float(last_line[header.index("timers.dur")])
+        elapsed_seconds = elapsed_nanos / (1000.0 * 1000.0 * 1000.0)
+        results["throughput"] = {
+            "ops": n_ops,
+            "seconds": elapsed_seconds,
+            "ops per second": round(n_ops / elapsed_seconds, 4),
+        }
+        if args.verbose:
+            print("throughput:")
+            pretty_print_summary(args, results["throughput"], "\t")
 
-    if "errors" in args.metrics:
-        if "counters.errors" in header:
-            n_errors = last_line[header.index("counters.errors")]
-            if n_errors != 0:
-                print("WARNING non-zero error count: ", n_errors)
-                results["errors"] = {"total": n_errors}
-            elif args.verbose:
-                print("errors: ", n_errors)
+    if "errors" in args.metrics and "counters.errors" in header:
+        n_errors = last_line[header.index("counters.errors")]
+        if n_errors != 0:
+            print("WARNING non-zero error count: ", n_errors)
+            results["errors"] = {"total": n_errors}
+        elif args.verbose:
+            print("errors: ", n_errors)
 
     return results
 
@@ -195,8 +198,9 @@ def process_csv(args, actor_name, csv_reader):
             continue
 
         if metric_name not in header:
-            print("Unable to find metric with the name '%s'. Available metrics: %s" % (
-                metric_name, json.dumps(header)))
+            print(
+                f"Unable to find metric with the name '{metric_name}'. Available metrics: {json.dumps(header)}"
+            )
             print("Skipping this actor analysis")
             return {metric_name: []}
 
@@ -251,8 +255,8 @@ def print_histogram_bucket(prefix, global_max, bucket_min, bucket_max, end_brack
     # [10      ,12      ): **
     # ....
     max_digits = math.ceil(math.log(global_max, 10))
-    bound_fmt = "%" + str(max_digits) + "d"
-    fmt_string = "%s[" + bound_fmt + "," + bound_fmt + "%s: %s\t(%d)"
+    bound_fmt = f"%{str(max_digits)}d"
+    fmt_string = f"%s[{bound_fmt},{bound_fmt}" + "%s: %s\t(%d)"
     print(fmt_string %
           (
               prefix,
@@ -273,13 +277,14 @@ def print_histogram(data_points, n_buckets, prefix=""):
                     i for i in range(n_buckets)] + [data_points[-1]]
 
     data_idx = 0
+    # Some workloads record thousands or more readings - don't want to print that many stars.
+    max_stars = 60
     # One more split point than we have buckets. e.g. 11 splits means 10 buckets.
     for splits_idx in range(1, len(split_points)):
-        bucket_min = split_points[splits_idx - 1]
         bucket_max = split_points[splits_idx]
 
         starting_idx = data_idx
-        while data_idx < len(data_points) and data_points[data_idx] < split_points[splits_idx]:
+        while data_idx < len(data_points) and data_points[data_idx] < bucket_max:
             data_idx += 1
         n_items = data_idx - starting_idx
 
@@ -287,10 +292,9 @@ def print_histogram(data_points, n_buckets, prefix=""):
             # Everything left has to go in this bucket
             n_items += (len(data_points) - data_idx)
 
-        # Some workloads record thousands or more readings - don't want to print that many stars.
-        max_stars = 60
         stars = "*"*max_stars + "..." if (n_items > max_stars) else "*"*n_items
 
+        bucket_min = split_points[splits_idx - 1]
         print_histogram_bucket(
             prefix,
             max_v,
@@ -310,7 +314,7 @@ def pretty_print_summary(args, summary, prefix=""):
             print("%s%-10s: %-8s" % (prefix, key, summary[key]))
 
     if not args.hideHistograms and "sorted_raw_data" in summary:
-        print("%shistogram:" % prefix)
+        print(f"{prefix}histogram:")
         print_histogram(summary["sorted_raw_data"],
                         args.nHistogramBuckets, prefix + "\t")
 
@@ -350,8 +354,7 @@ def main():
         actor_name = extract_actor_name(actor_file)
         if actor_regex.match(actor_name) is None:
             if args.verbose:
-                print("Skipping actor %s since it doesn't match regex" %
-                      actor_name)
+                print(f"Skipping actor {actor_name} since it doesn't match regex")
             continue
 
         if args.verbose:

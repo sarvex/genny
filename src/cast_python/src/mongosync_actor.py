@@ -10,12 +10,14 @@ import yaml
 def _get_connection_urls(workload_yaml):
     with open(workload_yaml) as f:
         workload = yaml.safe_load(f)
-    uris = workload.get("EnvironmentDetails", {}).get("MongosyncConnectionURIs")
-    if not uris:
+    if uris := workload.get("EnvironmentDetails", {}).get(
+        "MongosyncConnectionURIs"
+    ):
+        return uris
+    else:
         raise Exception(
-            f"This actor requires setting EnvironmentDetails: MongosyncConnectionURIs to use this script"
+            "This actor requires setting EnvironmentDetails: MongosyncConnectionURIs to use this script"
         )
-    return uris
 
 
 def poll(workload_yaml, predicate, key):
@@ -43,10 +45,10 @@ def _change_one_mongosync_state(route, body, url):
     """
     resp = requests.post(f"{url}{route}", json=body)
     print(resp.json(), flush=True)
-    success = resp.json()["success"]
-    if not success:
+    if success := resp.json()["success"]:
+        return success
+    else:
         raise Exception(f"State change failed at route {route}")
-    return success
 
 
 def change_state(workload_yaml, route, body):
@@ -60,12 +62,7 @@ def change_state(workload_yaml, route, body):
 
     fn = functools.partial(_change_one_mongosync_state, route, body)
     with ThreadPoolExecutor() as executor:
-        futures = []
-        # Using executor.map swallows exceptions from the task,
-        # using .submit and then accessing the future's .result
-        # will cause exceptions to be rethrown
-        for url in connection_urls:
-            futures.append(executor.submit(fn, url))
+        futures = [executor.submit(fn, url) for url in connection_urls]
         for f in futures:
             f.result()
 
@@ -98,7 +95,9 @@ def poll_for_cea(workload_yaml):
 )
 @click.argument("workload_yaml", nargs=1)
 def poll_for_commit_point(workload_yaml):
-    poll(workload_yaml, lambda x: bool(x) == False, "canCommit") or poll(workload_yaml, lambda x: int(x) > 120, "lagTimeSeconds")
+    poll(workload_yaml, lambda x: not bool(x), "canCommit") or poll(
+        workload_yaml, lambda x: int(x) > 120, "lagTimeSeconds"
+    )
 
 
 @cli.command(

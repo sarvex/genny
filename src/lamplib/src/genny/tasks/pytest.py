@@ -33,7 +33,7 @@ def run_self_test(genny_repo_root: str, workspace_root: str):
 
 
 def _python_version_string():
-    return ".".join(map(str, sys.version_info))[0:5]
+    return ".".join(map(str, sys.version_info))[:5]
 
 
 def _validate_python_installation():

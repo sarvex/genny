@@ -62,8 +62,7 @@ def dry_run_workloads(genny_repo_root: str, workspace_root: str, given_workload:
     else:
         glob_pattern = os.path.join(genny_repo_root, "src", "workloads", "*", "*.yml")
         workloads = glob.glob(glob_pattern)
-    curr = 0
-    for workload in workloads:
+    for curr, workload in enumerate(workloads):
         SLOG.info("Checking workload", workload=workload, index=curr, of_how_many=len(workloads))
         dry_run_workload(
             yaml_file_path=workload,
@@ -71,4 +70,3 @@ def dry_run_workloads(genny_repo_root: str, workspace_root: str, given_workload:
             genny_repo_root=genny_repo_root,
             workspace_root=workspace_root,
         )
-        curr += 1

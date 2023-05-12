@@ -57,7 +57,7 @@ class YamlReader:
             Key the basename (no extension) of the file and value the loaded contents.
             E.g. load_set("expansions") => {"expansions": {"contents":["of","expansions.yml"]}}
         """
-        out = dict()
+        out = {}
         for to_load in [f for f in files if self.exists(f)]:
             basename = str(os.path.basename(to_load).split(".yml")[0])
             out[basename] = self.load(workspace_root=workspace_root, path=to_load)
@@ -137,10 +137,10 @@ class CLIOperation(NamedTuple):
         execution = int(reader.load(workspace_root, "expansions.yml")["execution"])
         if mode_name == "all_tasks":
             mode = OpName.ALL_TASKS
-        if mode_name == "patch_tasks":
+        elif mode_name == "patch_tasks":
             mode = OpName.PATCH_TASKS
             variant = reader.load(workspace_root, "expansions.yml")["build_variant"]
-        if mode_name == "variant_tasks":
+        elif mode_name == "variant_tasks":
             mode = OpName.VARIANT_TASKS
             variant = reader.load(workspace_root, "expansions.yml")["build_variant"]
         return CLIOperation(
@@ -212,10 +212,7 @@ class Workload:
         self._validate_auto_run(auto_run)
         auto_run_info = []
         for block in auto_run:
-            if "ThenRun" in block:
-                then_run = block["ThenRun"]
-            else:
-                then_run = []
+            then_run = block["ThenRun"] if "ThenRun" in block else []
             auto_run_info.append(AutoRunBlock(block["When"], then_run))
 
         self.auto_run_info = auto_run_info
@@ -247,12 +244,11 @@ class Workload:
         if len(relative_path) == 1:
             # Convert workload file name to snake case.
             return self._to_snake_case(relative_path[0])
-        else:
-            # Omit first directory. Example: ["nested", "MyWorkload"].
-            relative_path = relative_path[1:]
+        # Omit first directory. Example: ["nested", "MyWorkload"].
+        relative_path = relative_path[1:]
 
-            # Convert each part to snake case and join with "_". Example: nested_my_workload
-            return "_".join([self._to_snake_case(part) for part in relative_path])
+        # Convert each part to snake case and join with "_". Example: nested_my_workload
+        return "_".join([self._to_snake_case(part) for part in relative_path])
 
     @property
     def relative_path(self) -> str:
@@ -361,8 +357,7 @@ class Workload:
         if branch_name in self._MAIN_BRANCHES:
             return self._MAX_VERSION
 
-        match = re.match(r"\Av(\d+).(\d+)\Z", branch_name)
-        if match:
+        if match := re.match(r"\Av(\d+).(\d+)\Z", branch_name):
             return tuple(int(v) for v in match.group(1, 2))
         else:
             return None
@@ -396,7 +391,7 @@ class Workload:
         :return: unique tasks.
         """
         # Sort the result to make checking dict equality in unittests easier.
-        return sorted(list(set([task for task in tasks])))
+        return sorted(list(set(list(tasks))))
 
     @staticmethod
     def _validate_auto_run(auto_run):
@@ -539,7 +534,7 @@ class ConfigWriter:
                 success = True
             except Exception as e:
                 raised = e
-                raise e
+                raise raised
             finally:
                 SLOG.info(
                     f"{'Succeeded' if success else 'Failed'} to write to {output_file} from cwd={os.getcwd()}."

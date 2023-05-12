@@ -29,10 +29,10 @@ import re
 def create_introduced_in_text(version, bug_number = None):
     """Generate text to paste in to documentation file"""
     if bug_number:
-        return '> [Introduced](https://github.com/catchorg/Catch2/issues/%s) in Catch %s.' % (bug_number, version)
+        return f'> [Introduced](https://github.com/catchorg/Catch2/issues/{bug_number}) in Catch {version}.'
     else:
         # Use this text for changes that don't have issue numbers
-        return '> Introduced in Catch %s.' % version
+        return f'> Introduced in Catch {version}.'
 
 
 def link_to_changes_in_release(release, releases):
@@ -63,10 +63,8 @@ def write_recent_release_notes_with_introduced_text():
             line = line[:-1]
             print(line)
 
-            # Extract version number from table of contents
-            match = re.search(release_toc_regex, line)
-            if match:
-                release_name = match.group(1)
+            if match := re.search(release_toc_regex, line):
+                release_name = match[1]
                 releases.append(release_name)
 
             if line.startswith('## '):

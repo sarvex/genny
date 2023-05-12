@@ -222,9 +222,7 @@ class _WorkloadParser(object):
             for key, value in node.items():
                 out = self._preprocess(key, value, out)
         elif isinstance(node, list):
-            out = []
-            for val in node:
-                out.append(self._recursive_parse(val))
+            out = [self._recursive_parse(val) for val in node]
         elif isinstance(node, datetime.date):
             out = str(node)
         else:
@@ -272,15 +270,14 @@ class _WorkloadParser(object):
 
         name = input["Name"]
 
-        # The default value is mandatory.
-        defaultVal = input["Default"]
-
         # Nested params are evaluated.
         paramVal = self._context.get(name, _ContextType.Parameter)
         if paramVal is not None:
             return self._recursive_parse(paramVal)
-        else:
-            return self._recursive_parse(defaultVal)
+        # The default value is mandatory.
+        defaultVal = input["Default"]
+
+        return self._recursive_parse(defaultVal)
 
     def _replace_numexpr(self, input):
         OP_KEY = "^NumExpr"
@@ -299,8 +296,8 @@ class _WorkloadParser(object):
         if VALUE_KEY in input:
             input_values = input[VALUE_KEY]
             parsed_values = self._recursive_parse(input_values)
-            if not all(
-                type(value) == int or type(value) == float for value in parsed_values.values()
+            if any(
+                type(value) not in [int, float] for value in parsed_values.values()
             ):
                 msg = (
                     f"Invalid values for '{VALUE_KEY}' in '{OP_KEY}', only numerical values are allowed.\n"
@@ -371,8 +368,7 @@ class _WorkloadParser(object):
 
     def _parse_only_in(self, onlyIn):
         out = []
-        nop = {}
-        nop["Nop"] = True
+        nop = {"Nop": True}
         max = self._recursive_parse(onlyIn["NopInPhasesUpTo"])
         for i in range(max + 1):
             isActivePhase = False
@@ -387,8 +383,6 @@ class _WorkloadParser(object):
 
     def _parse_load_config(self, load_config):
         with self._context.enter():
-            keysSeen = 0
-
             if "Path" not in load_config:
                 msg = f"Missing the `Path` top-level key in your loadable configuration: {load_config}"
                 raise ParseException(msg)
@@ -398,8 +392,7 @@ class _WorkloadParser(object):
             out = self._preprocess("Path", path, out)
             path = out["Path"]
 
-            keysSeen += 1
-
+            keysSeen = 0 + 1
             path = os.path.join(self._phase_config_path, path)
 
             if not os.path.isfile(path):
@@ -474,12 +467,7 @@ def _smoke_convert(workload_root):
     # Convert keywords in the "Actors" block.
     for actor in workload_root["Actors"]:
         actor_out = _convert_obj_for_smoke(actor)
-        phases_out = []
-
-        # Convert keywords in the "Phases" block.
-        for phase in actor_out["Phases"]:
-            phases_out.append(_convert_obj_for_smoke(phase))
-
+        phases_out = [_convert_obj_for_smoke(phase) for phase in actor_out["Phases"]]
         actor_out["Phases"] = phases_out
         actors_out.append(actor_out)
 
@@ -491,12 +479,9 @@ def _smoke_convert(workload_root):
 def _convert_obj_for_smoke(in_node):
     out = {}
     for key, value in in_node.items():
-        if key == "Duration" or key == "Repeat":
+        if key in ["Duration", "Repeat"]:
             out["Repeat"] = 1
-        elif key == "GlobalRate" or key == "SleepBefore" or key == "SleepAfter":
-            # Ignore those keys in smoke tests.
-            pass
-        else:
+        elif key not in ["GlobalRate", "SleepBefore", "SleepAfter"]:
             out[key] = value
     return out
 
@@ -504,8 +489,7 @@ def _convert_obj_for_smoke(in_node):
 def _load_file(source):
     try:
         with open(source) as file:
-            workload = yaml.safe_load(file)
-            return workload
+            return yaml.safe_load(file)
     except:
         SLOG.error(f"Error loading yaml from {source}: {sys.exc_info()[0]}")
         raise

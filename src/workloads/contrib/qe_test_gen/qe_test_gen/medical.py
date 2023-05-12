@@ -163,11 +163,7 @@ class UniformDistribution(ExplicitDistribution):
         numDocs = 1000000
         target = math.floor(numDocs / len(values))
 
-        distribution = {}
-
-        for value in values:
-            distribution[value] = target
-
+        distribution = {value: target for value in values}
         super(UniformDistribution, self).__init__(field_name, contention_factor, distribution)
 
 
@@ -178,11 +174,7 @@ def make_credit_cards():
     faker = Faker()
     faker.seed_instance(12345)
 
-    credit_cards = []
-    for i in range(0, 100000):
-        credit_cards.append(faker.unique.credit_card_number())
-
-    return credit_cards
+    return [faker.unique.credit_card_number() for _ in range(0, 100000)]
 
 
 credit_cards = UniformDistribution("credit_cards", 4, make_credit_cards())
@@ -228,8 +220,7 @@ class CreateIndexPhase:
         return {"field": self.field}
 
     def generate(self):
-        template = self.env.get_template("create_index_phase.jinja2")
-        return template
+        return self.env.get_template("create_index_phase.jinja2")
 
 
 class LoadPhase:
@@ -241,8 +232,7 @@ class LoadPhase:
         return {"iterationsPerThread": math.floor(self.numDocs / 16)}
 
     def generate(self):
-        template = self.env.get_template("load_phase.jinja2")
-        return template
+        return self.env.get_template("load_phase.jinja2")
 
 
 class FSMPhase:
@@ -263,8 +253,7 @@ class FSMPhase:
         }
 
     def generate(self):
-        template = self.env.get_template("update_query_mixed_phase.jinja2")
-        return template
+        return self.env.get_template("update_query_mixed_phase.jinja2")
 
 
 def to_snake_case(camel_case):

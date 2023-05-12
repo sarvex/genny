@@ -92,10 +92,10 @@ def generate(v):
                     globals['implIfDefs'] = -1
             m = includesParser.match( line )
             if m:
-                header = m.group(1)
+                header = m[1]
                 headerPath, sep, headerFile = header.rpartition( "/" )
                 if headerFile not in seenHeaders:
-                    if headerFile != "tbc_text_format.h" and headerFile != "clara.h":
+                    if headerFile not in ["tbc_text_format.h", "clara.h"]:
                         seenHeaders.add( headerFile )
                     if headerPath == "internal" and path.endswith("internal/"):
                         headerPath = ""
@@ -108,10 +108,7 @@ def generate(v):
                 if ifImplParser.match(line):
                     globals['implIfDefs'] = globals['ifdefs']
                 if (not guardParser.match( line ) or defineParser.match( line ) ) and not commentParser1.match( line )and not commentParser2.match( line ):
-                    if blankParser.match( line ):
-                        blanks = blanks + 1
-                    else:
-                        blanks = 0
+                    blanks = blanks + 1 if blankParser.match( line ) else 0
                     if blanks < 2 and not defineParser.match(line):
                         write( line.rstrip() + "\n" )
         write( u'// end {}\n'.format(filename) )
